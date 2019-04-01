@@ -123,16 +123,16 @@ pipeline {
         // The commented out parameters are for optionally using them in the pipeline.
         // In this example, the parameters are loaded from file ${JENKINS_HOME}/parameters.groovy later in the pipeline.
         // The ${JENKINS_HOME}/parameters.groovy can be a mounted secrets file in your Jenkins container.
-/*
-        string (name: 'DOCKER_REG',       defaultValue: 'docker-artifactory.my',                   description: 'Docker registry')
-        string (name: 'DOCKER_TAG',       defaultValue: 'dev',                                     description: 'Docker tag')
+
+        string (name: 'DOCKER_REG',       defaultValue: 'harbor.pks.pkhamdee.com',                   description: 'Docker registry')
+        string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag')
         string (name: 'DOCKER_USR',       defaultValue: 'admin',                                   description: 'Your helm repository user')
         string (name: 'DOCKER_PSW',       defaultValue: 'password',                                description: 'Your helm repository password')
         string (name: 'IMG_PULL_SECRET',  defaultValue: 'docker-reg-secret',                       description: 'The Kubernetes secret for the Docker registry (imagePullSecrets)')
-        string (name: 'HELM_REPO',        defaultValue: 'https://artifactory.my/artifactory/helm', description: 'Your helm repository')
-        string (name: 'HELM_USR',         defaultValue: 'admin',                                   description: 'Your helm repository user')
-        string (name: 'HELM_PSW',         defaultValue: 'password',                                description: 'Your helm repository password')
-*/
+        string (name: 'HELM_REPO',        defaultValue: 'https://raw.githubusercontent.com/pkhamdee/helm-example/master/', description: 'Your helm repository')
+        string (name: 'HELM_USR',         defaultValue: 'pkhamdee',                                   description: 'Your helm repository user')
+        string (name: 'HELM_PSW',         defaultValue: 'Khuntao332',                                description: 'Your helm repository password')
+
     }
 
     // In this example, all is built and run from the master

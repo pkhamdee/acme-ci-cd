@@ -56,7 +56,7 @@ dockerLogin () {
             errorExit "Docker credentials not set (DOCKER_USR and DOCKER_PSW)"
         fi
 
-        docker login ${DOCKER_REG} -u ${DOCKER_USR} -p ${DOCKER_PSW} || errorExit "Docker login to ${DOCKER_REG} failed"
+        docker login --insecure-registry=harbor.pks.pkhamdee.com ${DOCKER_REG} -u ${DOCKER_USR} -p ${DOCKER_PSW} || errorExit "Docker login to ${DOCKER_REG} failed"
     else
         echo "Docker registry not set. Skipping"
     fi
@@ -85,7 +85,7 @@ buildDockerImage () {
 pushDockerImage () {
     echo -e "\nPushing ${DOCKER_REPO}:${DOCKER_TAG}"
 
-    docker push --insecure-registry=harbor.pks.pkhamdee.com ${DOCKER_REG}/${DOCKER_REPO}:${DOCKER_TAG} || errorExit "Pushing ${DOCKER_REPO}:${DOCKER_TAG} failed"
+    docker push ${DOCKER_REG}/${DOCKER_REPO}:${DOCKER_TAG} || errorExit "Pushing ${DOCKER_REPO}:${DOCKER_TAG} failed"
 }
 
 # Packing the helm chart

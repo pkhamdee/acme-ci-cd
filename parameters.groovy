@@ -1,4 +1,4 @@
-parameters {
+
         string (name: 'GIT_BRANCH',           defaultValue: 'master',  description: 'Git branch to build')
         booleanParam (name: 'DEPLOY_TO_PROD', defaultValue: false,     description: 'If build and tests are good, proceed and deploy to production without manual approval')
 
@@ -16,4 +16,3 @@ parameters {
         string (name: 'HELM_USR',         defaultValue: 'pkhamdee',                                   description: 'Your helm repository user')
         string (name: 'HELM_PSW',         defaultValue: 'Khuntao332',                                description: 'Your helm repository password')
 
-    }

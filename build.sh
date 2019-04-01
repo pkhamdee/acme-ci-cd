@@ -85,7 +85,7 @@ buildDockerImage () {
 pushDockerImage () {
     echo -e "\nPushing ${DOCKER_REPO}:${DOCKER_TAG}"
 
-    docker push ${DOCKER_REG}/${DOCKER_REPO}:${DOCKER_TAG} || errorExit "Pushing ${DOCKER_REPO}:${DOCKER_TAG} failed"
+    docker push --insecure-registry=harbor.pks.pkhamdee.com ${DOCKER_REG}/${DOCKER_REPO}:${DOCKER_TAG} || errorExit "Pushing ${DOCKER_REPO}:${DOCKER_TAG} failed"
 }
 
 # Packing the helm chart

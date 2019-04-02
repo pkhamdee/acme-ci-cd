@@ -112,7 +112,7 @@ pipeline {
         IMAGE_NAME = 'acme'
         TEST_LOCAL_PORT = 8817
         DEPLOY_PROD = false
-        PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
+        //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
 
     parameters {
@@ -123,7 +123,7 @@ pipeline {
         // The commented out parameters are for optionally using them in the pipeline.
         // In this example, the parameters are loaded from file ${JENKINS_HOME}/parameters.groovy later in the pipeline.
         // The ${JENKINS_HOME}/parameters.groovy can be a mounted secrets file in your Jenkins container.
-/*
+
         string (name: 'DOCKER_REG',       defaultValue: 'harbor.pks.pkhamdee.com',                   description: 'Docker registry')
         string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag')
         string (name: 'DOCKER_USR',       defaultValue: 'admin',                                   description: 'Your helm repository user')
@@ -132,7 +132,7 @@ pipeline {
         string (name: 'HELM_REPO',        defaultValue: 'https://raw.githubusercontent.com/pkhamdee/helm-example/master/', description: 'Your helm repository')
         string (name: 'HELM_USR',         defaultValue: 'pkhamdee',                                   description: 'Your helm repository user')
         string (name: 'HELM_PSW',         defaultValue: 'Khuntao332',                                description: 'Your helm repository password')
-*/
+
     }
 
     // In this example, all is built and run from the master
@@ -156,14 +156,14 @@ pipeline {
                 sh "helm init"
 
                 //Make sure parameters file exists
-                script {
+                /*script {
                     if (! fileExists("${PARAMETERS_FILE}")) {
                         echo "ERROR: ${PARAMETERS_FILE} is missing!"
                     }
-                }
+                }*/
 
                 // Load Docker registry and Helm repository configurations from file
-                load "${JENKINS_HOME}/parameters.groovy"
+               // load "${WORKSPACE}/parameters.groovy"
 
                 echo "DOCKER_REG is ${DOCKER_REG}"
                 echo "HELM_REPO  is ${HELM_REPO}"
@@ -176,8 +176,14 @@ pipeline {
                     echo "Global ID set to ${ID}"
                 }
 
-                sh "makedir -p /etc/docker/certs.d/harbor.pks.pkhamdee.com\:4443"
-                sh "cp ${WORKSPACE}/ca.crt /etc/docker/certs.d/harbor.pks.pkhamdee.com\:4443/ca.crt"
+                sh "mkdir -p /etc/docker/certs.d/harbor.pks.pkhamdee.com"
+                sh "cp ${WORKSPACE}/ca.crt /etc/docker/certs.d/harbor.pks.pkhamdee.com/ca.crt"
+
+                sh "mkdir -p /etc/docker/tls/harbor.pks.pkhamdee.com:4443"
+                sh "cp ${WORKSPACE}/ca.crt /etc/docker/tls/harbor.pks.pkhamdee.com:4443/ca.crt"
+
+                sh "ls /etc/docker/certs.d/harbor.pks.pkhamdee.com/ca.crt"
+                sh "ls /etc/docker/tls/harbor.pks.pkhamdee.com:4443/ca.crt"
             }
         }
 

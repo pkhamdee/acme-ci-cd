@@ -8,7 +8,7 @@ DOCKER_REG=${DOCKER_REG:-docker-artifactory.my}
 DOCKER_USR=${DOCKER_USR:-admin}
 DOCKER_PSW=${DOCKER_PSW:-password}
 
-DOCKER_REPO=${DOCKER_REPO:-acme}
+DOCKER_REPO=${DOCKER_REPO:-library/acme}
 DOCKER_TAG=${DOCKER_TAG:-dev}
 
 HELM_REPO=${HELM_REG:-http://artifactory.my/artifactory/helm}

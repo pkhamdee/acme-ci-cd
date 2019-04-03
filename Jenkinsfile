@@ -176,14 +176,6 @@ pipeline {
                     echo "Global ID set to ${ID}"
                 }
 
-                sh "mkdir -p /etc/docker/certs.d/harbor.pks.pkhamdee.com"
-                sh "cp ${WORKSPACE}/ca.crt /etc/docker/certs.d/harbor.pks.pkhamdee.com/ca.crt"
-
-                sh "mkdir -p /etc/docker/tls/harbor.pks.pkhamdee.com:4443"
-                sh "cp ${WORKSPACE}/ca.crt /etc/docker/tls/harbor.pks.pkhamdee.com:4443/ca.crt"
-
-                sh "ls /etc/docker/certs.d/harbor.pks.pkhamdee.com/ca.crt"
-                sh "ls /etc/docker/tls/harbor.pks.pkhamdee.com:4443/ca.crt"
             }
         }
 

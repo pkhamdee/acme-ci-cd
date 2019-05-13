@@ -112,7 +112,7 @@ pipeline {
         IMAGE_NAME = 'acme'
         TEST_LOCAL_PORT = 8817
         DEPLOY_PROD = false
-        //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
+        PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
 
     parameters {

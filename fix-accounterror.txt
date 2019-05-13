@@ -1,0 +1,13 @@
+The commands below will allow permission for all service accounts of cluster:
+kubectl create clusterrolebinding permissive-binding --clusterrole=cluster-admin --user=admin --user=kubelet --group=system:serviceaccounts
+
+The official documentation of Kubernetes, not approve this practice:
+Warning: The following policy allows ALL service accounts to act as cluster administrators. Any application running in a container receives service account credentials automatically, and could perform any action against the API, including viewing secrets and modifying permissions. This is not a recommended policy.
+
+Use this permissive binding for only namespace which the jenkins was deployed: i.e jenkins, kubernetes-plugin
+
+example:
+kubectl create clusterrolebinding permissive-binding --clusterrole=cluster-admin --user=admin --user=kubelet --group=system:serviceaccounts:jenkins
+kubectl create clusterrolebinding permissive-binding --clusterrole=cluster-admin --user=admin --user=kubelet --group=system:serviceaccounts:<custom-namespace>
+
+Therefore, the commands above will allow only permissions to serviceaccounts inside of the namespace which you specified.

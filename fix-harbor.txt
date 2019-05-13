@@ -1,0 +1,3 @@
+$ kubectl exec -it jenkins-jenkins-k8s-5cdd7fd949-n5lr7 -it -c dind-daemon /bin/sh
+$ mkdir -p /etc/docker/certs.d/harbor.pks.pkhamdee.com
+then put ca.crt there

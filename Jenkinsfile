@@ -31,7 +31,7 @@ def helmInstall (namespace, release) {
         sh """
             helm upgrade --install --namespace ${namespace} ${release} \
                 --set imagePullSecrets=${IMG_PULL_SECRET} \
-                --set image.repository=${DOCKER_REG}/${IMAGE_NAME},image.tag=${DOCKER_TAG} helm/acme
+                --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} helm/acme
         """
         sh "sleep 5"
     }
@@ -112,7 +112,7 @@ pipeline {
         IMAGE_NAME = 'acme'
         TEST_LOCAL_PORT = 8817
         DEPLOY_PROD = false
-        PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
+        //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
 
     parameters {
@@ -124,10 +124,10 @@ pipeline {
         // In this example, the parameters are loaded from file ${JENKINS_HOME}/parameters.groovy later in the pipeline.
         // The ${JENKINS_HOME}/parameters.groovy can be a mounted secrets file in your Jenkins container.
 
-        string (name: 'DOCKER_REG',       defaultValue: 'harbor.pks.pkhamdee.com',                   description: 'Docker registry')
+        string (name: 'DOCKER_REG',       defaultValue: 'harbor.pks.g.aws.yogendra.me',                   description: 'Docker registry')
         string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag')
         string (name: 'DOCKER_USR',       defaultValue: 'admin',                                   description: 'Your helm repository user')
-        string (name: 'DOCKER_PSW',       defaultValue: 'password',                                description: 'Your helm repository password')
+        string (name: 'DOCKER_PSW',       defaultValue: 'VMware1!',                                description: 'Your helm repository password')
         string (name: 'IMG_PULL_SECRET',  defaultValue: 'docker-reg-secret',                       description: 'The Kubernetes secret for the Docker registry (imagePullSecrets)')
         string (name: 'HELM_REPO',        defaultValue: 'https://raw.githubusercontent.com/pkhamdee/helm-example/master/', description: 'Your helm repository')
         string (name: 'HELM_USR',         defaultValue: 'pkhamdee',                                   description: 'Your helm repository user')
@@ -149,7 +149,10 @@ pipeline {
                         credentialsId: 'github',
                         url: 'https://github.com/pkhamdee/acme-ci-cd.git'
 
+                
                 // Validate kubectl
+                sh "cp ${WORKSPACE}/config_glob /root/.kube/config"
+                sh "kubectl config use-context cluster03"
                 sh "kubectl cluster-info"
 
                 // Init helm client
@@ -191,7 +194,7 @@ pipeline {
                 sh "[ -z \"\$(docker ps -a | grep ${ID} 2>/dev/null)\" ] || docker rm -f ${ID}"
 
                 echo "Starting ${IMAGE_NAME} container"
-                sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/${IMAGE_NAME}:${DOCKER_TAG}"
+                sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/library/${IMAGE_NAME}:${DOCKER_TAG}"
 
                 script {
                     host_ip = sh(returnStdout: true, script: '/sbin/ip route | awk \'/default/ { print $3 ":${TEST_LOCAL_PORT}" }\'')

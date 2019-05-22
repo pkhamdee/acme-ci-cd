@@ -126,12 +126,12 @@ pipeline {
 
         string (name: 'DOCKER_REG',       defaultValue: 'harbor.pks.g.aws.yogendra.me',                   description: 'Docker registry')
         string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag')
-        string (name: 'DOCKER_USR',       defaultValue: 'admin',                                   description: 'Your helm repository user')
-        string (name: 'DOCKER_PSW',       defaultValue: 'VMware1!',                                description: 'Your helm repository password')
+        string (name: 'DOCKER_USR',       defaultValue: 'yyyy',                                   description: 'Your helm repository user')
+        string (name: 'DOCKER_PSW',       defaultValue: 'xxxx',                                description: 'Your helm repository password')
         string (name: 'IMG_PULL_SECRET',  defaultValue: 'docker-reg-secret',                       description: 'The Kubernetes secret for the Docker registry (imagePullSecrets)')
         string (name: 'HELM_REPO',        defaultValue: 'https://raw.githubusercontent.com/pkhamdee/helm-example/master/', description: 'Your helm repository')
-        string (name: 'HELM_USR',         defaultValue: 'pkhamdee',                                   description: 'Your helm repository user')
-        string (name: 'HELM_PSW',         defaultValue: 'Khuntao332',                                description: 'Your helm repository password')
+        string (name: 'HELM_USR',         defaultValue: 'xxx',                                   description: 'Your helm repository user')
+        string (name: 'HELM_PSW',         defaultValue: 'yyyy',                                description: 'Your helm repository password')
 
     }
 

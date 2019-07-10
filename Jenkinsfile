@@ -408,6 +408,9 @@ pipeline {
 
             steps {
                 script {
+                    sh "kubectl config use-context non-prod"
+                    sh "helm repo update"
+
                     DEPLOY_PROD = true
                     namespace = 'production'
                     sh 'kubectl config use-context prod'

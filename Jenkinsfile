@@ -115,6 +115,7 @@ pipeline {
         GIT_BRANCH = 'master'
         DEPLOY_TO_PROD = true
         DOCKER_TAG =  'latest'
+        KUBECONFIG = "$WORKSPACE/.kubeconfig"
     
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
@@ -146,8 +147,8 @@ pipeline {
 
                 
                 // Validate kubectl
-                withCredentials([file(credentialsId: 'kubernetes-config', variable: 'KUBECONFIG')]) {
-                  sh "cp ${KUBECONFIG} /root/.kube/config"                    
+                withCredentials([file(credentialsId: 'kubernetes-config', variable: 'KUBECONFIG_SRC')]) {
+                  sh "cp ${KUBECONFIG_SRC} ${KUBECONFIG}"                    
                   sh "kubectl config use-context non-prod"
                 }
 
@@ -289,87 +290,87 @@ pipeline {
             }
         }
 
-        ////////// Step 5 //////////
-        stage('Deploy to staging') {
-            steps {
-                script {
-                    namespace = 'staging'
+        // ////////// Step 5 //////////
+        // stage('Deploy to staging') {
+        //     steps {
+        //         script {
+        //             namespace = 'staging'
 
-                    echo "Deploying application ${IMAGE_NAME}:${DOCKER_TAG} to ${namespace} namespace"
-                    createNamespace (namespace)
+        //             echo "Deploying application ${IMAGE_NAME}:${DOCKER_TAG} to ${namespace} namespace"
+        //             createNamespace (namespace)
 
-                    // Remove release if exists
-                    helmDelete (namespace, "${ID}")
+        //             // Remove release if exists
+        //             helmDelete (namespace, "${ID}")
 
-                    // Deploy with helm
-                    echo "Deploying"
-                    helmInstall (namespace, "${ID}")
-                }
-            }
-        }
+        //             // Deploy with helm
+        //             echo "Deploying"
+        //             helmInstall (namespace, "${ID}")
+        //         }
+        //     }
+        // }
 
-        // Run the 3 tests on the deployed Kubernetes pod and service
-        stage('Staging tests') {
-            parallel {
-                stage('Curl http_code') {
-                    steps {
-                        echo "Staging tests"
-                    }
-                }
-                /*stage('Curl http_code') {
-                    steps {
-                        curlTest (namespace, 'http_code')
-                    }
-                }
-                stage('Curl total_time') {
-                    steps {
-                        curlTest (namespace, 'time_total')
-                    }
-                }
-                stage('Curl size_download') {
-                    steps {
-                        curlTest (namespace, 'size_download')
-                    }
-                }*/
-            }
-        }
+        // // Run the 3 tests on the deployed Kubernetes pod and service
+        // stage('Staging tests') {
+        //     parallel {
+        //         stage('Curl http_code') {
+        //             steps {
+        //                 echo "Staging tests"
+        //             }
+        //         }
+        //         /*stage('Curl http_code') {
+        //             steps {
+        //                 curlTest (namespace, 'http_code')
+        //             }
+        //         }
+        //         stage('Curl total_time') {
+        //             steps {
+        //                 curlTest (namespace, 'time_total')
+        //             }
+        //         }
+        //         stage('Curl size_download') {
+        //             steps {
+        //                 curlTest (namespace, 'size_download')
+        //             }
+        //         }*/
+        //     }
+        // }
 
-        stage('Cleanup staging') {
-            steps {
-                script {
-                    // Remove release if exists
-                    helmDelete (namespace, "${ID}")
-                }
-            }
-        }
+        // stage('Cleanup staging') {
+        //     steps {
+        //         script {
+        //             // Remove release if exists
+        //             helmDelete (namespace, "${ID}")
+        //         }
+        //     }
+        // }
 
         ////////// Step 6 //////////
         // Waif for user manual approval, or proceed automatically if DEPLOY_TO_PROD is true
-        stage('Go for Production?') {
-            when {
-                allOf {
-                    environment name: 'GIT_BRANCH', value: 'master'
-                    environment name: 'DEPLOY_TO_PROD', value: 'false'
-                }
-            }
+        // stage('Go for Production?') {
+        //     when {
+        //         allOf {
+        //             environment name: 'GIT_BRANCH', value: 'master'
+        //             environment name: 'DEPLOY_TO_PROD', value: 'false'
+        //         }
+        //     }
 
-            steps {
-                // Prevent any older builds from deploying to production
-                milestone(1)
-                input 'Proceed and deploy to Production?'
-                milestone(2)
+        //     steps {
+        //         // Prevent any older builds from deploying to production
+        //         milestone(1)
+        //         input 'Proceed and deploy to Production?'
+        //         milestone(2)
 
-                script {
-                    DEPLOY_PROD = true
-                }
-            }
-        }
+        //         script {
+        //             DEPLOY_PROD = true
+        //         }
+        //     }
+        // }
 
         stage('Deploy to Production') {
             when {
                 anyOf {
                     expression { DEPLOY_PROD == true }
-                    environment name: 'DEPLOY_TO_PROD', value: 'true'
+                    // environment name: 'DEPLOY_TO_PROD', value: 'true'
                 }
             }
 
@@ -377,6 +378,7 @@ pipeline {
                 script {
                     DEPLOY_PROD = true
                     namespace = 'production'
+                    sh 'kubectl config use-context prod'
 
                     echo "Deploying application ${IMAGE_NAME}:${DOCKER_TAG} to ${namespace} namespace"
                     createNamespace (namespace)

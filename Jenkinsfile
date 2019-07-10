@@ -112,21 +112,23 @@ pipeline {
         TEST_LOCAL_PORT = 8817
         DEPLOY_PROD = false
         DOCKER_REG = 'harbor.gustine.cf-app.com'
-        
+        GIT_BRANCH = 'master'
+        DEPLOY_TO_PROD = true
+        DOCKER_TAG =  'latest'
     
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
 
-    parameters {
-        string (name: 'GIT_BRANCH',           defaultValue: 'master',  description: 'Git branch to build')
-        booleanParam (name: 'DEPLOY_TO_PROD', defaultValue: true,     description: 'If build and tests are good, proceed and deploy to production without manual approval')
+    // parameters {
+    //     string (name: 'GIT_BRANCH',           defaultValue: 'master',  description: 'Git branch to build')
+    //     booleanParam (name: 'DEPLOY_TO_PROD', defaultValue: true,     description: 'If build and tests are good, proceed and deploy to production without manual approval')
 
-        // The commented out parameters are for optionally using them in the pipeline.
-        // In this example, the parameters are loaded from file ${JENKINS_HOME}/parameters.groovy later in the pipeline.
-        // The ${JENKINS_HOME}/parameters.groovy can be a mounted secrets file in your Jenkins container.
+    //     // The commented out parameters are for optionally using them in the pipeline.
+    //     // In this example, the parameters are loaded from file ${JENKINS_HOME}/parameters.groovy later in the pipeline.
+    //     // The ${JENKINS_HOME}/parameters.groovy can be a mounted secrets file in your Jenkins container.
 
-        string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag') 
-    }
+    //     string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag') 
+    // }
 
     // In this example, all is built and run from the master
     agent { node { label 'master' } }

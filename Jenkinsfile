@@ -139,20 +139,19 @@ pipeline {
         stage('Git clone and setup') {
             steps {
                 echo "Check out acme code"
-                git branch: "master",
-                        credentialsId: 'github',
-                        url: 'https://github.com/pkhamdee/acme-ci-cd.git'
+                git branch: "master",                        
+                        url: 'https://github.com/yogendra/acme-ci-cd.git'
 
                 
                     // Setup kubectl
                     sh '''
-                    curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+                    curl -sLO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
                     chmod a+x kubectl
                     mv kubectl /usr/local/bin/kubectl
                     '''
                     // Setup helm
                     sh '''
-                    curl https://get.helm.sh/helm-v2.10.0-linux-amd64.tar.gz | tar -xzv linux-amd64/helm
+                    curl -sL https://get.helm.sh/helm-v2.10.0-linux-amd64.tar.gz | tar -xzv linux-amd64/helm
                     chmod a+x linux-amd64/helm
                     mv linux-amd64/helm /usr/local/bin/helm
                     helm init --client-only
@@ -162,7 +161,7 @@ pipeline {
 
                     // Setup docker
                     sh '''
-                      curl -L https://download.docker.com/linux/static/stable/aarch64/docker-18.09.7.tgz | tar -xzv docker/docker
+                      curl -sL https://download.docker.com/linux/static/stable/aarch64/docker-18.09.7.tgz | tar -xzv docker/docker
                       mv docker/docker /usr/local/bin/docker
                     '''
                 // Validate kubectl

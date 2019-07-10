@@ -27,6 +27,10 @@ def helmInstall (namespace, release) {
 
     script {
         release = "${release}-${namespace}"
+        withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'HELM_CA_CERT')]) {
+            withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'HELM_PSW', usernameVariable: 'HELM_USR')]) {                
+            sh "helm repo add --ca-file ${HELM_CA_CERT} --username ${HELM_USR} --password ${HELM_PSW} acme https://harbor.gustine.cf-app.com/chartrepo/acme"
+        }
         sh "helm repo update"
         sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} acme/acme"
         sh "sleep 5"

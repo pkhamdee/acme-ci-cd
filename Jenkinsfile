@@ -180,6 +180,7 @@ pipeline {
                 withCredentials([file(credentialsId: 'kubernetes-config', variable: 'KUBECONFIG_SRC')]) {
                   sh "cp ${KUBECONFIG_SRC} ${KUBECONFIG}"                    
                   sh "kubectl config use-context non-prod"
+                  sh "helm repo update"
                 }
 
                 

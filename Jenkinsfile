@@ -114,6 +114,10 @@ pipeline {
         DOCKER_TAG =  'latest'
         KUBECONFIG = "$WORKSPACE/.kubeconfig"
         HELM_REPO = "https://harbor.gustine.cf-app.com/chartrepo/acme"
+        DOCKER_TLS_VERIFY="1"
+        DOCKER_HOST="tcp://35.193.242.125:2376"
+        DOCKER_CERT_PATH="/tmp/docker-build"
+        DOCKER_MACHINE_NAME="docker-build"
     
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
@@ -143,32 +147,39 @@ pipeline {
                         url: 'https://github.com/yogendra/acme-ci-cd.git'
 
                 
-                    // Setup kubectl
-                    sh '''
-                    curl -sLO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
-                    chmod a+x kubectl
-                    mv kubectl /usr/local/bin/kubectl
-                    '''
-                    // Setup helm
-                    sh '''
-                    curl -sL https://get.helm.sh/helm-v2.10.0-linux-amd64.tar.gz | tar -xzv linux-amd64/helm
-                    chmod a+x linux-amd64/helm
-                    mv linux-amd64/helm /usr/local/bin/helm
-                    helm init --client-only
-                    [[ `helm plugin list | grep push | wc -l ` -eq 0  ]] && helm plugin install https://github.com/chartmuseum/helm-push
-                    rm -rf linux-amd64
-                    '''
+                // Setup kubectl
+                sh '''
+                curl -sLO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+                chmod a+x kubectl
+                mv kubectl /usr/local/bin/kubectl
+                '''
+                // Setup helm
+                sh '''
+                curl -sL https://get.helm.sh/helm-v2.10.0-linux-amd64.tar.gz | tar -xzv linux-amd64/helm
+                chmod a+x linux-amd64/helm
+                mv linux-amd64/helm /usr/local/bin/helm
+                helm init --client-only
+                [[ `helm plugin list | grep push | wc -l ` -eq 0  ]] && helm plugin install https://github.com/chartmuseum/helm-push
+                rm -rf linux-amd64
+                '''
 
-                    // Setup docker
-                    sh '''
-                      curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-18.09.7.tgz | tar -xzv docker/docker
-                      mv docker/docker /usr/local/bin/docker
+                // Setup dockers
+                withCredentials([file(credentialsId: 'docker-build', variable: 'DOCKER_BUILD')]) {
+                sh "tar -C /tmp -xzvf ${DOCKER_BUILD}"
+                sh '''
+                    curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-18.09.7.tgz | tar -xzv docker/docker
+                    mv docker/docker /usr/local/bin/docker
+                    docker ps
                     '''
+                
+                }    
                 // Validate kubectl
                 withCredentials([file(credentialsId: 'kubernetes-config', variable: 'KUBECONFIG_SRC')]) {
                   sh "cp ${KUBECONFIG_SRC} ${KUBECONFIG}"                    
                   sh "kubectl config use-context non-prod"
                 }
+
+                
 
                 sh "kubectl cluster-info"
 

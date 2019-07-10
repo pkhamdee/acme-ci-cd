@@ -116,7 +116,7 @@ pipeline {
         HELM_REPO = "https://harbor.gustine.cf-app.com/chartrepo/acme"
         DOCKER_TLS_VERIFY="1"
         DOCKER_HOST="tcp://35.193.242.125:2376"
-        DOCKER_CERT_PATH="/tmp/docker-build"
+        DOCKER_CERT_PATH="/tmp/docker-machine/machines/docker-build"
         DOCKER_MACHINE_NAME="docker-build"
     
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
@@ -164,8 +164,8 @@ pipeline {
                 '''
 
                 // Setup dockers
-                withCredentials([file(credentialsId: 'docker-build', variable: 'DOCKER_BUILD')]) {
-                sh "tar -C /tmp -xzvf ${DOCKER_BUILD}"
+                withCredentials([file(credentialsId: 'docker-machine', variable: 'DOCKER_MACHINE_CONFIG')]) {
+                sh "tar -C /tmp -xzvf ${DOCKER_MACHINE_CONFIG}"
                 sh '''
                     curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-18.09.7.tgz | tar -xzv docker/docker
                     mv docker/docker /usr/local/bin/docker

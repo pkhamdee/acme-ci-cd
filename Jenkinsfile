@@ -143,6 +143,27 @@ pipeline {
                         url: 'https://github.com/pkhamdee/acme-ci-cd.git'
 
                 
+                    // Setup kubectl
+                    sh '''
+                    curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+                    chmod a+x kubectl
+                    mv kubectl /usr/local/bin/kubectl
+                    '''
+                    // Setup helm
+                    sh '''
+                    curl https://get.helm.sh/helm-v2.10.0-linux-amd64.tar.gz | tar -xzv linux-amd64/helm
+                    chmod a+x linux-amd64/helm
+                    mv linux-amd64/helm /usr/local/bin/helm
+                    helm init --client-only
+                    [[`helm plugin list | grep push | wc -l ` -eq 0  ]] && helm plugin install https://github.com/chartmuseum/helm-push
+                    rm -rf linux-amd64
+                    '''
+
+                    // Setup docker
+                    sh '''
+                      curl -L https://download.docker.com/linux/static/stable/aarch64/docker-18.09.7.tgz | tar -xzv docker/docker
+                      mv docker/docker /usr/local/bin/docker
+                    '''
                 // Validate kubectl
                 withCredentials([file(credentialsId: 'kubernetes-config', variable: 'KUBECONFIG_SRC')]) {
                   sh "cp ${KUBECONFIG_SRC} ${KUBECONFIG}"                    
@@ -151,9 +172,6 @@ pipeline {
 
                 sh "kubectl cluster-info"
 
-                // Init helm client
-                sh "helm init --client-only"
-                sh "helm plugin install https://github.com/chartmuseum/helm-push"
 
 
                 echo "DOCKER_REG is ${DOCKER_REG}"

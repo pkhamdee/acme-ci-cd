@@ -155,7 +155,7 @@ pipeline {
                     chmod a+x linux-amd64/helm
                     mv linux-amd64/helm /usr/local/bin/helm
                     helm init --client-only
-                    [[`helm plugin list | grep push | wc -l ` -eq 0  ]] && helm plugin install https://github.com/chartmuseum/helm-push
+                    [[ `helm plugin list | grep push | wc -l ` -eq 0  ]] && helm plugin install https://github.com/chartmuseum/helm-push
                     rm -rf linux-amd64
                     '''
 

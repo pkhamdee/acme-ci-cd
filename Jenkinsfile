@@ -163,6 +163,7 @@ pipeline {
                 helm init --client-only
                 [[ `helm plugin list | grep push | wc -l ` -eq 0  ]] && helm plugin install https://github.com/chartmuseum/helm-push
                 rm -rf linux-amd64
+                helm repo update
                 '''
 
                 // Setup dockers

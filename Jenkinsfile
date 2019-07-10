@@ -161,7 +161,7 @@ pipeline {
 
                     // Setup docker
                     sh '''
-                      curl -sL https://download.docker.com/linux/static/stable/aarch64/docker-18.09.7.tgz | tar -xzv docker/docker
+                      curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-18.09.7.tgz | tar -xzv docker/docker
                       mv docker/docker /usr/local/bin/docker
                     '''
                 // Validate kubectl

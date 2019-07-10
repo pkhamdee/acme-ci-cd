@@ -185,7 +185,7 @@ main () {
     fi
     if [ "${PUSH}" == "true" ]; then
         # Attempt docker login
-        # dockerLogin
+        dockerLogin
         pushDockerImage
     fi
 

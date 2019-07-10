@@ -29,7 +29,7 @@ def helmInstall (namespace, release) {
         release = "${release}-${namespace}"
         sh "helm repo add helm ${HELM_REPO}; helm repo update"
         sh """
-            helm upgrade --install --namespace ${namespace} ${release} \                
+            helm upgrade --install --namespace ${namespace} ${release}  \             
                 --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} helm/acme
         """
         sh "sleep 5"

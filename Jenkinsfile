@@ -115,9 +115,11 @@ pipeline {
         KUBECONFIG = "$WORKSPACE/.kubeconfig"
         HELM_REPO = "https://harbor.gustine.cf-app.com/chartrepo/acme"
         DOCKER_TLS_VERIFY="1"
+        
         DOCKER_HOST="tcp://35.193.242.125:2376"
         DOCKER_CERT_PATH="/tmp/docker-machine/machines/docker-build"
         DOCKER_MACHINE_NAME="docker-build"
+        DOCKER_HOST_IP="35.193.242.125"
     
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
@@ -213,9 +215,9 @@ pipeline {
                 echo "Starting ${IMAGE_NAME} container"
                 sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/library/${IMAGE_NAME}:${DOCKER_TAG}"
 
-                script {
-                    host_ip = sh(returnStdout: true, script: '/sbin/ip route | awk \'/default/ { print $3 ":${TEST_LOCAL_PORT}" }\'')
-                }
+                // script {
+                //     host_ip = "${DOCKER_HOST_IP}"
+                // }
             }
         }
 

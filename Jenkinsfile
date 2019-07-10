@@ -113,6 +113,7 @@ pipeline {
         DEPLOY_TO_PROD = true
         DOCKER_TAG =  'latest'
         KUBECONFIG = "$WORKSPACE/.kubeconfig"
+        HELM_REPO = "https://harbor.gustine.cf-app.com/chartrepo/acme"
     
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }

@@ -29,8 +29,7 @@ def helmInstall (namespace, release) {
         release = "${release}-${namespace}"
         sh "helm repo add helm ${HELM_REPO}; helm repo update"
         sh """
-            helm upgrade --install --namespace ${namespace} ${release} \
-                --set imagePullSecrets=${IMG_PULL_SECRET} \
+            helm upgrade --install --namespace ${namespace} ${release} \                
                 --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} helm/acme
         """
         sh "sleep 5"
@@ -112,27 +111,21 @@ pipeline {
         IMAGE_NAME = 'acme'
         TEST_LOCAL_PORT = 8817
         DEPLOY_PROD = false
+        DOCKER_REG = 'harbor.gustine.cf-app.com'
+        
+    
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
 
     parameters {
         string (name: 'GIT_BRANCH',           defaultValue: 'master',  description: 'Git branch to build')
-        booleanParam (name: 'DEPLOY_TO_PROD', defaultValue: false,     description: 'If build and tests are good, proceed and deploy to production without manual approval')
-
+        booleanParam (name: 'DEPLOY_TO_PROD', defaultValue: true,     description: 'If build and tests are good, proceed and deploy to production without manual approval')
 
         // The commented out parameters are for optionally using them in the pipeline.
         // In this example, the parameters are loaded from file ${JENKINS_HOME}/parameters.groovy later in the pipeline.
         // The ${JENKINS_HOME}/parameters.groovy can be a mounted secrets file in your Jenkins container.
 
-        string (name: 'DOCKER_REG',       defaultValue: 'harbor.pks.g.aws.yogendra.me',                   description: 'Docker registry')
-        string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag')
-        string (name: 'DOCKER_USR',       defaultValue: 'yyyy',                                   description: 'Your helm repository user')
-        string (name: 'DOCKER_PSW',       defaultValue: 'xxxx',                                description: 'Your helm repository password')
-        string (name: 'IMG_PULL_SECRET',  defaultValue: 'docker-reg-secret',                       description: 'The Kubernetes secret for the Docker registry (imagePullSecrets)')
-        string (name: 'HELM_REPO',        defaultValue: 'https://raw.githubusercontent.com/pkhamdee/helm-example/master/', description: 'Your helm repository')
-        string (name: 'HELM_USR',         defaultValue: 'xxx',                                   description: 'Your helm repository user')
-        string (name: 'HELM_PSW',         defaultValue: 'yyyy',                                description: 'Your helm repository password')
-
+        string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag') 
     }
 
     // In this example, all is built and run from the master
@@ -151,22 +144,17 @@ pipeline {
 
                 
                 // Validate kubectl
-                sh "cp ${WORKSPACE}/config_glob /root/.kube/config"
-                sh "kubectl config use-context cluster03"
+                withCredentials([file(credentialsId: 'kubernetes-config', variable: 'KUBECONFIG')]) {
+                  sh "cp ${KUBECONFIG} /root/.kube/config"                    
+                  sh "kubectl config use-context non-prod"
+                }
+
                 sh "kubectl cluster-info"
 
                 // Init helm client
-                sh "helm init"
+                sh "helm init --client-only"
+                sh "helm plugin install https://github.com/chartmuseum/helm-push"
 
-                //Make sure parameters file exists
-                /*script {
-                    if (! fileExists("${PARAMETERS_FILE}")) {
-                        echo "ERROR: ${PARAMETERS_FILE} is missing!"
-                    }
-                }*/
-
-                // Load Docker registry and Helm repository configurations from file
-               // load "${WORKSPACE}/parameters.groovy"
 
                 echo "DOCKER_REG is ${DOCKER_REG}"
                 echo "HELM_REPO  is ${HELM_REPO}"
@@ -232,6 +220,8 @@ pipeline {
         ////////// Step 3 //////////
         stage('Publish Docker and Helm') {
             steps {
+
+                // This step should not normally be used in your script. Consult the inline help for details.
                 echo "Stop and remove container"
                 sh "docker stop ${ID}"
 

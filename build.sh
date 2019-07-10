@@ -102,12 +102,16 @@ packHelmChart() {
 # Note - this uses the Artifactory API. You can replace it with any other solution you use.
 pushHelmChart() {
     echo -e "\nPushing Helm chart"
+    helm plugin install https://github.com/chartmuseum/helm-push
 
     local chart_name=$(ls -1 ${BUILD_DIR}/helm/*.tgz 2> /dev/null)
     echo "Helm chart: ${chart_name}"
 
     [ ! -z "${chart_name}" ] || errorExit "Did not find the helm chart to deploy"
-    curl -u${HELM_USR}:${HELM_PSW} -T ${chart_name} "${HELM_REPO}/$(basename ${chart_name})" || errorExit "Uploading helm chart failed"
+    # curl -u${HELM_USR}:${HELM_PSW} -T ${chart_name} "${HELM_REPO}/$(basename ${chart_name})" || errorExit "Uploading helm chart failed"
+
+    helm push --ca-file=${SCRIPT_DIR}/ca.crt  ${chart_name} acme
+
     echo
 }
 
@@ -181,7 +185,7 @@ main () {
     fi
     if [ "${PUSH}" == "true" ]; then
         # Attempt docker login
-        dockerLogin
+        # dockerLogin
         pushDockerImage
     fi
 

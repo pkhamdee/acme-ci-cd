@@ -28,7 +28,7 @@ def helmInstall (namespace, release) {
     script {
         release = "${release}-${namespace}"
         withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'HELM_CA_CERT')]) {
-            withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'HELM_PSW', usernameVariable: 'HELM_USR')]) {                
+            withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'HELM_PSW', usernameVariable: 'HELM_USR')]) {
                 sh "helm repo add --ca-file ca.pem --username ${HELM_USR} --password ${HELM_PSW} acme https://harbor.gustine.cf-app.com/chartrepo/acme"
             }
         }
@@ -153,13 +153,24 @@ pipeline {
                 git branch: "master",                        
                         url: 'https://github.com/yogendra/acme-ci-cd.git'
 
+                withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'CA_CERT')]) {
+                    sh "cp ${CA_CERT} ${WORKSPACE}/ca.crt"
+                }
+
+                sh '''
+                    curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-18.09.7.tgz | tar -xzv docker/docker
+                    mv docker/docker /usr/local/bin/docker
+                    docker ps
+                    '''
                 
+                }   
                 // Setup kubectl
                 sh '''
                 curl -sLO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
                 chmod a+x kubectl
                 mv kubectl /usr/local/bin/kubectl
                 '''
+
                 // Setup helm
                 sh '''
                 curl -sL https://get.helm.sh/helm-v2.10.0-linux-amd64.tar.gz | tar -xzv linux-amd64/helm
@@ -406,16 +417,9 @@ pipeline {
         // }
 
         stage('Deploy to Production') {
-            when {
-                anyOf {
-                    expression { DEPLOY_PROD == true }
-                    // environment name: 'DEPLOY_TO_PROD', value: 'true'
-                }
-            }
-
             steps {
                 script {
-                    sh "kubectl config use-context non-prod"
+                    sh "kubectl config use-context prod"
                     sh "helm repo update"
 
                     DEPLOY_PROD = true
@@ -433,10 +437,7 @@ pipeline {
         }
 
         // Run the 3 tests on the deployed Kubernetes pod and service
-        stage('Production tests') {
-            when {
-                expression { DEPLOY_PROD == true }
-            }
+        stage('Production tests') {            
 
             parallel {
                 stage('Curl http_code') {

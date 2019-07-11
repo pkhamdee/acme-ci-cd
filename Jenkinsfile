@@ -168,6 +168,7 @@ pipeline {
                 helm init --client-only
                 if [ `helm plugin list | grep push | wc -l ` -eq 0  ] ; then  helm plugin install https://github.com/chartmuseum/helm-push ; fi
                 rm -rf linux-amd64
+                helm repo remove acme
                 helm repo list
                 helm repo update
                 '''

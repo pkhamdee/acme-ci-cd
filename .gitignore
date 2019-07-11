@@ -3,5 +3,6 @@
 tmp
 logs
 build
+.kubeconfig.prod
 .kubeconfig
 .envrc

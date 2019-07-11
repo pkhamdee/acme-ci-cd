@@ -163,35 +163,35 @@ pipeline {
                     docker ps
                     '''
                 
-                }   
+                  
                 // Setup kubectl
                 sh '''
-                curl -sLO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
-                chmod a+x kubectl
-                mv kubectl /usr/local/bin/kubectl
+                    curl -sLO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+                    chmod a+x kubectl
+                    mv kubectl /usr/local/bin/kubectl
                 '''
 
                 // Setup helm
                 sh '''
-                curl -sL https://get.helm.sh/helm-v2.10.0-linux-amd64.tar.gz | tar -xzv linux-amd64/helm
-                chmod a+x linux-amd64/helm
-                mv linux-amd64/helm /usr/local/bin/helm
-                helm init --client-only
-                if [ `helm plugin list | grep push | wc -l ` -eq 0  ] ; then  helm plugin install https://github.com/chartmuseum/helm-push ; fi
-                rm -rf linux-amd64
-                helm repo remove acme
-                helm repo list
-                helm repo update
+                    curl -sL https://get.helm.sh/helm-v2.10.0-linux-amd64.tar.gz | tar -xzv linux-amd64/helm
+                    chmod a+x linux-amd64/helm
+                    mv linux-amd64/helm /usr/local/bin/helm
+                    helm init --client-only
+                    if [ `helm plugin list | grep push | wc -l ` -eq 0  ] ; then  helm plugin install https://github.com/chartmuseum/helm-push ; fi
+                    rm -rf linux-amd64
+                    helm repo remove acme
+                    helm repo list
+                    helm repo update
                 '''
 
                 // Setup dockers
                 withCredentials([file(credentialsId: 'docker-machine', variable: 'DOCKER_MACHINE_CONFIG')]) {
-                sh "tar -C /tmp -xzvf ${DOCKER_MACHINE_CONFIG}"
-                sh '''
-                    curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-18.09.7.tgz | tar -xzv docker/docker
-                    mv docker/docker /usr/local/bin/docker
-                    docker ps
-                    '''
+                    sh "tar -C /tmp -xzvf ${DOCKER_MACHINE_CONFIG}"
+                    sh '''
+                        curl -sL https://download.docker.com/linux/static/stable/x86_64/docker-18.09.7.tgz | tar -xzv docker/docker
+                        mv docker/docker /usr/local/bin/docker
+                        docker ps
+                        '''
                 
                 }    
                 // Validate kubectl

@@ -30,7 +30,7 @@ def helmAddrepo () {
 
         withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'HELM_CA_CERT')]) {
             withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'HELM_PSW', usernameVariable: 'HELM_USR')]) {
-                sh "helm repo add --ca-file ${HELM_CA_CERT} --username ${HELM_USR} --password ${HELM_PSW} acme https://harbor.pcfgcp.pkhamdee.com/chartrepo/library"
+                sh "helm repo add --ca-file ca.pem --username ${HELM_USR} --password ${HELM_PSW} acme https://harbor.pcfgcp.pkhamdee.com/chartrepo/library"
             }
         }
         sh "helm repo update"

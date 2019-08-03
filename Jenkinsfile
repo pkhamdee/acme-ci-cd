@@ -20,7 +20,7 @@ def createNamespace (namespace) {
 
 /* Helm add remo */
 def helmAddrepo () {
-    echo "Adding helm repo "
+    echo "Adding helm repo"
 
     script {
         withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'HELM_CA_CERT')]) {

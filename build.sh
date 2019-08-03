@@ -108,7 +108,8 @@ pushHelmChart() {
     echo "Helm chart: ${chart_name}"
 
     echo "add helm repo ${HELM_REPO}"
-    helm repo add helm ${HELM_REPO}; helm repo update"
+    helm repo add helm ${HELM_REPO}
+    helm repo update
 
 
     [ ! -z "${chart_name}" ] || errorExit "Did not find the helm chart to deploy"

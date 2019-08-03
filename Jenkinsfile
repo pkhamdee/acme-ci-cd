@@ -19,6 +19,25 @@ def createNamespace (namespace) {
     sh "[ ! -z \"\$(kubectl get ns ${namespace} -o name 2>/dev/null)\" ] || kubectl create ns ${namespace}"
 }
 
+
+/*
+    Helm add remo
+ */
+def helmAddrepo () {
+    echo "Adding acme repo "
+
+    script {
+
+        withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'HELM_CA_CERT')]) {
+            withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'HELM_PSW', usernameVariable: 'HELM_USR')]) {
+                sh "helm repo add --ca-file ${HELM_CA_CERT} --username ${HELM_USR} --password ${HELM_PSW} acme https://harbor.pcfgcp.pkhamdee.com/chartrepo/library"
+            }
+        }
+        sh "helm repo update"
+    }
+}
+
+
 /*
     Helm install
  */
@@ -27,12 +46,7 @@ def helmInstall (namespace, release) {
 
     script {
         release = "${release}-${namespace}"
-        withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'HELM_CA_CERT')]) {
-            withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'HELM_PSW', usernameVariable: 'HELM_USR')]) {
-                sh "helm repo add --ca-file ${HELM_CA_CERT} --username ${HELM_USR} --password ${HELM_PSW} acme https://harbor.pcfgcp.pkhamdee.com/chartrepo/acme"
-            }
-        }
-        sh "helm repo update"
+
         sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} acme/acme"
         sh "sleep 5"
     }
@@ -118,14 +132,8 @@ pipeline {
         DEPLOY_TO_PROD = true
         DOCKER_TAG =  'latest'
         KUBECONFIG = "$WORKSPACE/.kubeconfig"
-        HELM_REPO = "https://harbor.pcfgcp.pkhamdee.com/chartrepo/acme"
-        DOCKER_TLS_VERIFY="1"
-        
-        DOCKER_HOST="tcp://35.193.242.125:2376"
-        DOCKER_CERT_PATH="/tmp/docker-machine/machines/docker-build"
-        DOCKER_MACHINE_NAME="docker-build"
-        DOCKER_HOST_IP="35.193.242.125"
-    
+        HELM_REPO = "https://harbor.pcfgcp.pkhamdee.com/chartrepo/library"
+
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
 
@@ -157,12 +165,15 @@ pipeline {
                     sh "cp ${CA_CERT} ${WORKSPACE}/ca.crt"
                 }
 
+                script {
+                    helmAddrepo () 
+                } 
+
                 // Setup helm
                 sh '''
                     helm init --client-only
                     if [ `helm plugin list | grep push | wc -l ` -eq 0  ] ; then  helm plugin install https://github.com/chartmuseum/helm-push ; fi
                     rm -rf linux-amd64
-                    helm repo remove acme
                     helm repo list
                     helm repo update
                 '''

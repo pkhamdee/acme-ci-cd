@@ -10,9 +10,7 @@
     6. Optionally deploy to production and test
  */
 
-/*
-    Create the kubernetes namespace
- */
+/* Create the kubernetes namespace */
 def createNamespace (namespace) {
     echo "Creating namespace ${namespace} if needed"
 
@@ -20,17 +18,14 @@ def createNamespace (namespace) {
 }
 
 
-/*
-    Helm add remo
- */
+/* Helm add remo */
 def helmAddrepo () {
-    echo "Adding acme repo "
+    echo "Adding helm repo "
 
     script {
-
         withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'HELM_CA_CERT')]) {
             withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'HELM_PSW', usernameVariable: 'HELM_USR')]) {
-                sh "helm repo add --ca-file ca.pem --username ${HELM_USR} --password ${HELM_PSW} acme https://harbor.pcfgcp.pkhamdee.com/chartrepo/library"
+                sh "helm repo add --ca-file ca.pem --username ${HELM_USR} --password ${HELM_PSW} helm ${HELM_REPO}"
             }
         }
         sh "helm repo update"
@@ -38,9 +33,7 @@ def helmAddrepo () {
 }
 
 
-/*
-    Helm install
- */
+/* Helm install */
 def helmInstall (namespace, release) {
     echo "Installing ${release} in ${namespace}"
 
@@ -52,9 +45,7 @@ def helmInstall (namespace, release) {
     }
 }
 
-/*
-    Helm delete (if exists)
- */
+/* Helm delete (if exists) */
 def helmDelete (namespace, release) {
     echo "Deleting ${release} in ${namespace} if deployed"
 
@@ -64,9 +55,7 @@ def helmDelete (namespace, release) {
     }
 }
 
-/*
-    Run a curl against a given url
- */
+/* Run a curl against a given url */
 def curlRun (url, out) {
     echo "Running curl on ${url}"
 
@@ -83,9 +72,7 @@ def curlRun (url, out) {
     }
 }
 
-/*
-    Test with a simple curl and check we get 200 back
- */
+/* Test with a simple curl and check we get 200 back */
 def curlTest (namespace, out) {
     echo "Running tests in ${namespace}"
 
@@ -112,9 +99,7 @@ def curlTest (namespace, out) {
     }
 }
 
-/*
-    This is the main pipeline section with the stages of the CI/CD
- */
+/* This is the main pipeline section with the stages of the CI/CD */
 pipeline {
 
     options {
@@ -165,32 +150,37 @@ pipeline {
                     sh "cp ${CA_CERT} ${WORKSPACE}/ca.crt"
                 }
 
+                // git HEAD
+                GIT_HEAD = sh(returnStdout: true, script: 'git rev-parse --short HEAD')
+                echo "GIT_HEAD is ${GIT_HEAD}"
+
+
+                // Setup helm plugin
+                sh '''
+                    helm init --client-only
+                    if [ `helm plugin list | grep push | wc -l ` -eq 0  ] ; then  helm plugin install https://github.com/chartmuseum/helm-push ; fi     
+                '''
+
+                //add helm repo
                 script {
                     helmAddrepo () 
                 } 
 
-                // Setup helm
+                //list helm repo
                 sh '''
-                    helm init --client-only
-                    if [ `helm plugin list | grep push | wc -l ` -eq 0  ] ; then  helm plugin install https://github.com/chartmuseum/helm-push ; fi
-                    rm -rf linux-amd64
                     helm repo list
                     helm repo update
                 '''
 
-                // Check docker
-                sh '''
-                    docker ps
-                ''' 
+                // Check docker process
+                sh "docker ps"
 
                 // Validate kubectl
                 withCredentials([file(credentialsId: 'kubernetes-config', variable: 'KUBECONFIG_SRC')]) {
                   sh "cp ${KUBECONFIG_SRC} ${KUBECONFIG}"                    
                   sh "kubectl config use-context dev1"
-                  sh "helm repo update"
+                  sh "kubectl cluster-info"
                 }
-
-                sh "kubectl cluster-info"
 
                 echo "DOCKER_REG is ${DOCKER_REG}"
                 echo "HELM_REPO  is ${HELM_REPO}"
@@ -198,7 +188,7 @@ pipeline {
                 // Define a unique name for the tests container and helm release
                 script {
                     branch = GIT_BRANCH.replaceAll('/', '-').replaceAll('\\*', '-')
-                    ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}"
+                    ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}-${GIT_HEAD}"
 
                     echo "Global ID set to ${ID}"
                 }
@@ -222,7 +212,7 @@ pipeline {
 
                 // script {
                 //     host_ip = "${DOCKER_HOST_IP}"
-                // }
+                //}
             }
         }
 
@@ -234,11 +224,12 @@ pipeline {
                         echo "Starting Local tests"
                     }
                 }
-                /*stage('Curl http_code') {
+                stage('Curl http_code') {
                     steps {
-                        curlRun ("http://${host_ip}", 'http_code')
+                        curlRun ("http://host.docker.internal", 'http_code')
                     }
                 }
+                /*
                 stage('Curl total_time') {
                     steps {
                         curlRun ("http://${host_ip}", 'total_time')
@@ -325,81 +316,81 @@ pipeline {
             }
         }
 
-        // ////////// Step 5 //////////
-        // stage('Deploy to staging') {
-        //     steps {
-        //         script {
-        //             namespace = 'staging'
+        ////////// Step 5 //////////
+        stage('Deploy to staging') {
+            steps {
+                script {
+                    namespace = 'staging'
 
-        //             echo "Deploying application ${IMAGE_NAME}:${DOCKER_TAG} to ${namespace} namespace"
-        //             createNamespace (namespace)
+                    echo "Deploying application ${IMAGE_NAME}:${DOCKER_TAG} to ${namespace} namespace"
+                    createNamespace (namespace)
 
-        //             // Remove release if exists
-        //             helmDelete (namespace, "${ID}")
+                    // Remove release if exists
+                    helmDelete (namespace, "${ID}")
 
-        //             // Deploy with helm
-        //             echo "Deploying"
-        //             helmInstall (namespace, "${ID}")
-        //         }
-        //     }
-        // }
+                    // Deploy with helm
+                    echo "Deploying"
+                    helmInstall (namespace, "${ID}")
+                }
+            }
+        }
 
-        // // Run the 3 tests on the deployed Kubernetes pod and service
-        // stage('Staging tests') {
-        //     parallel {
-        //         stage('Curl http_code') {
-        //             steps {
-        //                 echo "Staging tests"
-        //             }
-        //         }
-        //         /*stage('Curl http_code') {
-        //             steps {
-        //                 curlTest (namespace, 'http_code')
-        //             }
-        //         }
-        //         stage('Curl total_time') {
-        //             steps {
-        //                 curlTest (namespace, 'time_total')
-        //             }
-        //         }
-        //         stage('Curl size_download') {
-        //             steps {
-        //                 curlTest (namespace, 'size_download')
-        //             }
-        //         }*/
-        //     }
-        // }
+        // Run the 3 tests on the deployed Kubernetes pod and service
+        stage('Staging tests') {
+            parallel {
+                stage('Curl http_code') {
+                    steps {
+                        echo "Staging tests"
+                    }
+                }
+                /*stage('Curl http_code') {
+                    steps {
+                        curlTest (namespace, 'http_code')
+                    }
+                }
+                stage('Curl total_time') {
+                    steps {
+                        curlTest (namespace, 'time_total')
+                    }
+                }
+                stage('Curl size_download') {
+                    steps {
+                        curlTest (namespace, 'size_download')
+                    }
+                }*/
+            }
+        }
 
-        // stage('Cleanup staging') {
-        //     steps {
-        //         script {
-        //             // Remove release if exists
-        //             helmDelete (namespace, "${ID}")
-        //         }
-        //     }
-        // }
+        stage('Cleanup staging') {
+            steps {
+                script {
+                    // Remove release if exists
+                    helmDelete (namespace, "${ID}")
+                }
+            }
+        }
 
         ////////// Step 6 //////////
-        // Waif for user manual approval, or proceed automatically if DEPLOY_TO_PROD is true
-        // stage('Go for Production?') {
-        //     when {
-        //         allOf {
-        //             environment name: 'GIT_BRANCH', value: 'master'
-        //             environment name: 'DEPLOY_TO_PROD', value: 'false'
-        //         }
-        //     }
+        //Waif for user manual approval, or proceed automatically if DEPLOY_TO_PROD is true
+        stage('Go for Production?') {
+            when {
+                allOf {
+                    environment name: 'GIT_BRANCH', value: 'master'
+                    environment name: 'DEPLOY_TO_PROD', value: 'false'
+                }
+            }
 
-        //     steps {
-        //         // Prevent any older builds from deploying to production
-        //         milestone(1)
-        //         input 'Proceed and deploy to Production?'
-        //         milestone(2)
+            steps {
+                // Prevent any older builds from deploying to production
+                milestone(1)
+                input 'Proceed and deploy to Production?'
+                milestone(2)
 
-        //         script {
-        //             DEPLOY_PROD = true
-        //         }
-        //     }
-        // }
+                script {
+                    DEPLOY_PROD = true
+                }
+            }
+        }
 
         stage('Deploy to Production') {
             steps {

@@ -34,13 +34,13 @@ def helmAddrepo () {
 
 
 /* Helm install */
-def helmInstall (namespace, release, url) {
+def helmInstall (namespace, release, values) {
     echo "Installing ${release} in ${namespace}"
 
     script {
         release = "${release}-${namespace}"
 
-        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} --set ingress.hosts[0].host=${url} --set ingress.tls[0].hosts[0]=${url} acme/acme"
+        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} -f ${values} acme/acme"
         sh "sleep 5"
     }
 }
@@ -110,7 +110,6 @@ pipeline {
     // Some global default variables
     environment {
         IMAGE_NAME = 'acme'
-        TEST_LOCAL_PORT = 8817
         DEPLOY_PROD = false
         DOCKER_REG = 'harbor.pcfgcp.pkhamdee.com'
         GIT_BRANCH = 'master'
@@ -151,8 +150,11 @@ pipeline {
                 }
 
                 // git HEAD
-                //GIT_HEAD = sh(returnStdout: true, script: 'git rev-parse --short HEAD')
-                //echo "GIT_HEAD is ${GIT_HEAD}"
+                script {
+                    GIT_HEAD = sh(returnStdout: true, script: 'git rev-parse --short HEAD')
+                    GIT_HEAD = GIT_HEAD.replaceAll('\n', '') //replace newline
+                    echo "GIT_HEAD is ${GIT_HEAD}"
+                }  
 
 
                 // Setup helm plugin
@@ -188,8 +190,7 @@ pipeline {
                 // Define a unique name for the tests container and helm release
                 script {
                     branch = GIT_BRANCH.replaceAll('/', '-').replaceAll('\\*', '-')
-                    //ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}-${GIT_HEAD}"
-                    ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}"
+                    ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}-${GIT_HEAD}"
 
                     echo "Global ID set to ${ID}"
                 }
@@ -209,11 +210,16 @@ pipeline {
                 sh "[ -z \"\$(docker ps -a | grep ${ID} 2>/dev/null)\" ] || docker rm -f ${ID}"
 
                 echo "Starting ${IMAGE_NAME} container"
-                sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/library/${IMAGE_NAME}:${DOCKER_TAG}"
 
-                // script {
-                //     host_ip = "${DOCKER_HOST_IP}"
-                //}
+                //sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/library/${IMAGE_NAME}:${DOCKER_TAG}"
+                sh "docker run --detach --name ${ID} --rm -P ${DOCKER_REG}/library/${IMAGE_NAME}:${DOCKER_TAG}"
+
+                script {
+                    TEST_LOCAL_PORT = sh(returnStdout: true, script: "docker inspect ${ID} --format '{{ (index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort }}'")
+                    TEST_LOCAL_PORT = TEST_LOCAL_PORT.replaceAll('\n', '') //replace newline
+                    echo "TEST_LOCAL_PORT is ${TEST_LOCAL_PORT}"
+                } 
+
             }
         }
 
@@ -223,21 +229,23 @@ pipeline {
                 
                 stage('Curl http_code') {
                     steps {
-                        curlRun ("http://localhost", 'http_code')
+                        echo "curl http_code http://localhost:${TEST_LOCAL_PORT}"
+                        curlRun ("http://localhost:${TEST_LOCAL_PORT}", 'http_code')
                     }
                 }
-                /*
                 stage('Curl total_time') {
                     steps {
-                        curlRun ("http://${host_ip}", 'total_time')
+                        echo "curl total_time http://localhost:${TEST_LOCAL_PORT}"
+                        curlRun ("http://localhost:${TEST_LOCAL_PORT}", 'total_time')
                     }
                 }
                 stage('Curl size_download') {
                     steps {
-                        curlRun ("http://${host_ip}", 'size_download')
+                        echo "curl size_download http://localhost:${TEST_LOCAL_PORT}"
+                        curlRun ("http://localhost:${TEST_LOCAL_PORT}", 'size_download')
                     }
                 }
-                */
+
             }
         }
 
@@ -256,6 +264,9 @@ pipeline {
 
                 echo "Packing helm chart"
                 sh "${WORKSPACE}/build.sh --pack_helm --push_helm --helm_repo ${HELM_REPO}"
+
+                echo "docker prune images"
+                sh "docker image prune -f"
             }
         }
 
@@ -272,8 +283,8 @@ pipeline {
                     helmDelete (namespace, "${ID}")
 
                     // Deploy with helm
-                    echo "Deploying"
-                    helmInstall(namespace, "${ID}","acme-dev.dev1.pcfgcp.pkhamdee.com")
+                    echo "Deploying dev using values-dev.yaml"
+                    helmInstall(namespace, "${ID}","values-dev.yaml")
                 }
             }
         }
@@ -326,8 +337,8 @@ pipeline {
                     helmDelete (namespace, "${ID}")
 
                     // Deploy with helm
-                    echo "Deploying"
-                    helmInstall (namespace, "${ID}","acme-stage.dev1.pcfgcp.pkhamdee.com")
+                    echo "Deploying stage using values-stage.yaml"
+                    helmInstall (namespace, "${ID}","values-stage.yaml")
                 }
             }
         }
@@ -405,8 +416,8 @@ pipeline {
                     createNamespace (namespace)
 
                     // Deploy with helm
-                    echo "Deploying"
-                    helmInstall (namespace, "${ID}","acme.dev1.pcfgcp.pkhamdee.com")
+                    echo "Deploying prod using values.yaml"
+                    helmInstall (namespace, "${ID}","values.yaml")
                 }
             }
         }

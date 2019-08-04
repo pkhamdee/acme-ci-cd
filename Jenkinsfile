@@ -39,7 +39,7 @@ def helmInstall (namespace, release, url) {
 
     script {
         release = "${release}-${namespace}"
-        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} --set ingress.hosts[0].host=${url} --set ingress.tls[0].hosts[0]=${url} --set ingress.hosts[0].paths[0]= acme/acme --wait"
+        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${GIT_HEAD} --set ingress.hosts[0].host=${url} --set ingress.tls[0].hosts[0]=${url} --set ingress.hosts[0].paths[0]= acme/acme --wait"
         sh "sleep 5"
     }
 }
@@ -113,7 +113,6 @@ pipeline {
         DOCKER_REG = 'harbor.pcfgcp.pkhamdee.com'
         GIT_BRANCH = 'master'
         DEPLOY_TO_PROD = false
-        DOCKER_TAG =  'latest'
         KUBECONFIG = "$WORKSPACE/.kubeconfig"
         HELM_REPO = "https://harbor.pcfgcp.pkhamdee.com/chartrepo/library"
 
@@ -180,7 +179,7 @@ pipeline {
                 // Define a unique name for the tests container and helm release
                 script {
                     branch = GIT_BRANCH.replaceAll('/', '-').replaceAll('\\*', '-')
-                    ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}-${GIT_HEAD}"
+                    ID = "${IMAGE_NAME}-${GIT_HEAD}-${branch}"
 
                     echo "Global ID set to ${ID}"
                 }
@@ -192,7 +191,7 @@ pipeline {
         stage('Build and tests') {
             steps {
                 echo "Building application and Docker image"
-                sh "${WORKSPACE}/build.sh --build --registry ${DOCKER_REG} --tag ${DOCKER_TAG}"
+                sh "${WORKSPACE}/build.sh --build --registry ${DOCKER_REG} --tag ${GIT_HEAD}"
 
                 echo "Running tests"
 
@@ -201,8 +200,8 @@ pipeline {
 
                 echo "Starting ${IMAGE_NAME} container"
 
-                //sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/library/${IMAGE_NAME}:${DOCKER_TAG}"
-                sh "docker run --detach --name ${ID} --rm -P ${DOCKER_REG}/library/${IMAGE_NAME}:${DOCKER_TAG}"
+                //sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/library/${IMAGE_NAME}:${GIT_HEAD}"
+                sh "docker run --detach --name ${ID} --rm -P ${DOCKER_REG}/library/${IMAGE_NAME}:${GIT_HEAD}"
 
                 script {
                     TEST_LOCAL_PORT = sh(returnStdout: true, script: "docker inspect ${ID} --format '{{ (index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort }}'")
@@ -247,9 +246,9 @@ pipeline {
                 echo "Stop and remove container"
                 sh "docker stop ${ID}"
 
-                echo "Pushing ${DOCKER_REG}/${IMAGE_NAME}:${DOCKER_TAG} image to registry"
+                echo "Pushing ${DOCKER_REG}/${IMAGE_NAME}:${GIT_HEAD} image to registry"
                 withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'DOCKER_PSW', usernameVariable: 'DOCKER_USR')]) {                
-                    sh "${WORKSPACE}/build.sh --push --registry ${DOCKER_REG} --tag ${DOCKER_TAG}"
+                    sh "${WORKSPACE}/build.sh --push --registry ${DOCKER_REG} --tag ${GIT_HEAD}"
                 }
 
                 echo "Packing helm chart"
@@ -318,7 +317,7 @@ pipeline {
                 script {
                     namespace = 'staging'
 
-                    echo "Deploying application ${IMAGE_NAME}:${DOCKER_TAG} to ${namespace} namespace"
+                    echo "Deploying application ${IMAGE_NAME}:${GIT_HEAD} to ${namespace} namespace"
                     createNamespace (namespace)
 
                     // Remove release if exists
@@ -398,7 +397,7 @@ pipeline {
                     //sh 'kubectl config use-context prod'
                     sh 'kubectl config use-context dev1'
 
-                    echo "Deploying application ${IMAGE_NAME}:${DOCKER_TAG} to ${namespace} namespace"
+                    echo "Deploying application ${IMAGE_NAME}:${GIT_HEAD} to ${namespace} namespace"
                     createNamespace (namespace)
 
                     // Deploy with helm

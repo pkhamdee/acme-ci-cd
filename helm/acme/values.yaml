@@ -21,7 +21,7 @@ ingress:
   }
   hosts:
     - host: acme.dev1.pcfgcp.pkhamdee.com
-      paths: [""]
+      paths: [/]
   tls:
     - secretName: tls-kubernetes
       hosts:

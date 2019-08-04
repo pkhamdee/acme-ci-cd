@@ -223,7 +223,7 @@ pipeline {
                 
                 stage('Curl http_code') {
                     steps {
-                        curlRun ("http://host.docker.internal", 'http_code')
+                        curlRun ("http://localhost", 'http_code')
                     }
                 }
                 /*

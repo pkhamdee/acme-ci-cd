@@ -34,13 +34,13 @@ def helmAddrepo () {
 
 
 /* Helm install */
-def helmInstall (namespace, release) {
+def helmInstall (namespace, release,url) {
     echo "Installing ${release} in ${namespace}"
 
     script {
         release = "${release}-${namespace}"
 
-        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} acme/acme"
+        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} --set ingress.hosts[0].host=${url} --set ingress.tls[0].hosts[0]=${url} acme/acme"
         sh "sleep 5"
     }
 }
@@ -219,11 +219,7 @@ pipeline {
         // Run the 3 tests on the currently running ACME Docker container
         stage('Local tests') {
             parallel {
-                stage('Curl http_code') {
-                    steps {
-                        echo "Starting Local tests"
-                    }
-                }
+                
                 stage('Curl http_code') {
                     steps {
                         curlRun ("http://host.docker.internal", 'http_code')
@@ -276,7 +272,7 @@ pipeline {
 
                     // Deploy with helm
                     echo "Deploying"
-                    helmInstall(namespace, "${ID}")
+                    helmInstall(namespace, "${ID}","acme-dev.dev1.pcfgcp.pkhamdee.com")
                 }
             }
         }
@@ -330,7 +326,7 @@ pipeline {
 
                     // Deploy with helm
                     echo "Deploying"
-                    helmInstall (namespace, "${ID}")
+                    helmInstall (namespace, "${ID}","acme-stage.dev1.pcfgcp.pkhamdee.com")
                 }
             }
         }
@@ -409,7 +405,7 @@ pipeline {
 
                     // Deploy with helm
                     echo "Deploying"
-                    helmInstall (namespace, "${ID}")
+                    helmInstall (namespace, "${ID}","acme.dev1.pcfgcp.pkhamdee.com")
                 }
             }
         }

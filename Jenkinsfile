@@ -34,7 +34,7 @@ def helmAddrepo () {
 
 
 /* Helm install */
-def helmInstall (namespace, release,url) {
+def helmInstall (namespace, release, url) {
     echo "Installing ${release} in ${namespace}"
 
     script {

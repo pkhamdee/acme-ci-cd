@@ -34,13 +34,12 @@ def helmAddrepo () {
 
 
 /* Helm install */
-def helmInstall (namespace, release, values) {
+def helmInstall (namespace, release, url) {
     echo "Installing ${release} in ${namespace}"
 
     script {
         release = "${release}-${namespace}"
-
-        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} -f ${values} acme/acme"
+        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${DOCKER_TAG} --set ingress.hosts[0].host=${url} --set ingress.tls[0].hosts[0]=${url} --set ingress.hosts[0].paths[0]= acme/acme --wait"
         sh "sleep 5"
     }
 }
@@ -113,24 +112,13 @@ pipeline {
         DEPLOY_PROD = false
         DOCKER_REG = 'harbor.pcfgcp.pkhamdee.com'
         GIT_BRANCH = 'master'
-        DEPLOY_TO_PROD = true
+        DEPLOY_TO_PROD = false
         DOCKER_TAG =  'latest'
         KUBECONFIG = "$WORKSPACE/.kubeconfig"
         HELM_REPO = "https://harbor.pcfgcp.pkhamdee.com/chartrepo/library"
 
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
-
-    // parameters {
-    //     string (name: 'GIT_BRANCH',           defaultValue: 'master',  description: 'Git branch to build')
-    //     booleanParam (name: 'DEPLOY_TO_PROD', defaultValue: true,     description: 'If build and tests are good, proceed and deploy to production without manual approval')
-
-    //     // The commented out parameters are for optionally using them in the pipeline.
-    //     // In this example, the parameters are loaded from file ${JENKINS_HOME}/parameters.groovy later in the pipeline.
-    //     // The ${JENKINS_HOME}/parameters.groovy can be a mounted secrets file in your Jenkins container.
-
-    //     string (name: 'DOCKER_TAG',       defaultValue: 'latest',                                     description: 'Docker tag') 
-    // }
 
     // In this example, all is built and run from the master
     agent { node { label 'master' } }
@@ -148,6 +136,8 @@ pipeline {
                 withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'CA_CERT')]) {
                     sh "cp ${CA_CERT} ${WORKSPACE}/ca.crt"
                 }
+
+                //load ${PARAMETERS_FILE}
 
                 // git HEAD
                 script {
@@ -283,8 +273,8 @@ pipeline {
                     helmDelete (namespace, "${ID}")
 
                     // Deploy with helm
-                    echo "Deploying dev using values-dev.yaml"
-                    helmInstall(namespace, "${ID}","values-dev.yaml")
+                    echo "Deploying dev"
+                    helmInstall(namespace, "${ID}","${ID}-dev.dev1.pcfgcp.pkhamdee.com")
                 }
             }
         }
@@ -294,24 +284,22 @@ pipeline {
             parallel {
                 stage('Curl http_code') {
                     steps {
-                        echo "Starting Local tests"
-                    }
-                }
-                /*stage('Curl http_code') {
-                    steps {
-                        curlTest (namespace, 'http_code')
+                        //curlTest (namespace, 'http_code')
+                        curlRun ("http://${ID}-dev.dev1.pcfgcp.pkhamdee.com", 'http_code')
                     }
                 }
                 stage('Curl total_time') {
                     steps {
-                        curlTest (namespace, 'time_total')
+                        //curlTest (namespace, 'time_total')
+                        curlRun ("http://${ID}-dev.dev1.pcfgcp.pkhamdee.com", 'time_total')
                     }
                 }
                 stage('Curl size_download') {
                     steps {
-                        curlTest (namespace, 'size_download')
+                        //curlTest (namespace, 'size_download')
+                        curlRun ("http://${ID}-dev.dev1.pcfgcp.pkhamdee.com", 'size_download')
                     }
-                }*/
+                }
             }
         }
 
@@ -337,8 +325,8 @@ pipeline {
                     helmDelete (namespace, "${ID}")
 
                     // Deploy with helm
-                    echo "Deploying stage using values-stage.yaml"
-                    helmInstall (namespace, "${ID}","values-stage.yaml")
+                    echo "Deploying stage"
+                    helmInstall (namespace, "${ID}","${ID}-stage.dev1.pcfgcp.pkhamdee.com")
                 }
             }
         }
@@ -348,24 +336,22 @@ pipeline {
             parallel {
                 stage('Curl http_code') {
                     steps {
-                        echo "Staging tests"
-                    }
-                }
-                /*stage('Curl http_code') {
-                    steps {
-                        curlTest (namespace, 'http_code')
+                        //curlTest (namespace, 'http_code')
+                        curlRun ("http://${ID}-stage.dev1.pcfgcp.pkhamdee.com", 'http_code')
                     }
                 }
                 stage('Curl total_time') {
                     steps {
-                        curlTest (namespace, 'time_total')
+                        //curlTest (namespace, 'time_total')
+                        curlRun ("http://${ID}-stage.dev1.pcfgcp.pkhamdee.com", 'time_total')
                     }
                 }
                 stage('Curl size_download') {
                     steps {
-                        curlTest (namespace, 'size_download')
+                        //curlTest (namespace, 'size_download')
+                        curlRun ("http://${ID}-stage.dev1.pcfgcp.pkhamdee.com", 'size_download')
                     }
-                }*/
+                }
             }
         }
 
@@ -416,8 +402,8 @@ pipeline {
                     createNamespace (namespace)
 
                     // Deploy with helm
-                    echo "Deploying prod using values.yaml"
-                    helmInstall (namespace, "${ID}","values.yaml")
+                    echo "Deploying prod"
+                    helmInstall (namespace, "${ID}","acme.dev1.pcfgcp.pkhamdee.com")
                 }
             }
         }
@@ -428,24 +414,22 @@ pipeline {
             parallel {
                 stage('Curl http_code') {
                     steps {
-                        echo "Production tests"
-                    }
-                }
-                /*stage('Curl http_code') {
-                    steps {
-                        curlTest (namespace, 'http_code')
+                        //curlTest (namespace, 'http_code')
+                        curlRun ("http://acme.dev1.pcfgcp.pkhamdee.com", 'size_download')
                     }
                 }
                 stage('Curl total_time') {
                     steps {
-                        curlTest (namespace, 'time_total')
+                        //curlTest (namespace, 'time_total')
+                        curlRun ("http://acme.dev1.pcfgcp.pkhamdee.com", 'size_download')
                     }
                 }
                 stage('Curl size_download') {
                     steps {
-                        curlTest (namespace, 'size_download')
+                        //curlTest (namespace, 'size_download')
+                        curlRun ("http://acme.dev1.pcfgcp.pkhamdee.com", 'size_download')
                     }
-                }*/
+                }
             }
         }
     }

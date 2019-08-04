@@ -151,8 +151,8 @@ pipeline {
                 }
 
                 // git HEAD
-                GIT_HEAD = sh(returnStdout: true, script: 'git rev-parse --short HEAD')
-                echo "GIT_HEAD is ${GIT_HEAD}"
+                //GIT_HEAD = sh(returnStdout: true, script: 'git rev-parse --short HEAD')
+                //echo "GIT_HEAD is ${GIT_HEAD}"
 
 
                 // Setup helm plugin
@@ -188,6 +188,7 @@ pipeline {
                 // Define a unique name for the tests container and helm release
                 script {
                     branch = GIT_BRANCH.replaceAll('/', '-').replaceAll('\\*', '-')
+                    //ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}-${GIT_HEAD}"
                     ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}-${GIT_HEAD}"
 
                     echo "Global ID set to ${ID}"

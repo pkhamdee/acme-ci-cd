@@ -39,7 +39,7 @@ def helmInstall (namespace, release, url) {
 
     script {
         release = "${release}-${namespace}"
-        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${GIT_HEAD} --set ingress.hosts[0].host=${url} --set ingress.tls[0].hosts[0]=${url} --set ingress.hosts[0].paths[0]= acme/acme --wait"
+        sh "helm upgrade --install --namespace ${namespace} ${release}  --set image.repository=${DOCKER_REG}/library/${IMAGE_NAME},image.tag=${GIT_HEAD} --set ingress.hosts[0].host=${url} --set ingress.tls[0].hosts[0]=${url} --set ingress.hosts[0].paths[0]= helm/acme --wait"
         sh "sleep 5"
     }
 }

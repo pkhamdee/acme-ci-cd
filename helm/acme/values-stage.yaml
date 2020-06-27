@@ -20,12 +20,12 @@ ingress:
     ingress.kubernetes.io/ssl-redirect: "false"
   }
   hosts:
-    - host: acme-stage.dev1.pcfgcp.pkhamdee.com
+    - host: acme-stage.tkg.pkhamdee.com
       paths:
-  tls:
-    - secretName: tls-kubernetes
-      hosts:
-        - acme-stage.dev1.pcfgcp.pkhamdee.com
+#  tls:
+#    - secretName: tls-kubernetes
+#      hosts:
+#        - acme-stage.dev1.pcfgcp.pkhamdee.com
 resources:
   limits:
     cpu: 100m

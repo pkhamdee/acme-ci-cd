@@ -1,15 +1,3 @@
-/*
-    This is an example pipeline that implement full CI/CD for a simple static web site packed in a Docker image.
-
-    The pipeline is made up of 6 main steps
-    1. Git clone and setup
-    2. Build and local tests
-    3. Publish Docker and Helm
-    4. Deploy to dev and test
-    5. Deploy to staging and test
-    6. Optionally deploy to production and test
- */
-
 /* Create the kubernetes namespace */
 def createNamespace (namespace) {
     echo "Creating namespace ${namespace} if needed"
@@ -23,9 +11,9 @@ def helmAddrepo () {
     echo "Adding helm repo"
 
     script {
-        withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'HELM_CA_CERT')]) {
+        withCredentials([file(credentialsId: 'harbor-ca-cert', variable: 'HELM_CA_CERT')]) {
             withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'HELM_PSW', usernameVariable: 'HELM_USR')]) {
-                sh "helm repo add --ca-file ca.pem --username ${HELM_USR} --password ${HELM_PSW} helm ${HELM_REPO}"
+                sh "helm repo add --ca-file ca.crt --username ${HELM_USR} --password ${HELM_PSW} helm ${HELM_REPO}"
             }
         }
         sh "helm repo update"
@@ -63,10 +51,10 @@ def curlRun (url, out) {
             out = 'http_code'
         }
         echo "Getting ${out}"
-            def result = sh (
-                returnStdout: true,
-                script: "curl --output /dev/null --silent --connect-timeout 5 --max-time 5 --retry 5 --retry-delay 5 --retry-max-time 30 --write-out \"%{${out}}\" ${url}"
-        )
+        def result = sh (
+            returnStdout: true,
+            script: "curl --output /dev/null --silent --connect-timeout 5 --max-time 5 --retry 5 --retry-delay 5 --retry-max-time 30 --write-out \"%{${out}}\" ${url}"
+            )
         echo "Result (${out}): ${result}"
     }
 }
@@ -82,9 +70,9 @@ def curlTest (namespace, out) {
 
         // Get deployment's service IP
         def svc_ip = sh (
-                returnStdout: true,
-                script: "kubectl get svc -n ${namespace} | grep ${ID} | awk '{print \$3}'"
-        )
+            returnStdout: true,
+            script: "kubectl get svc -n ${namespace} | grep ${ID} | awk '{print \$3}'"
+            )
 
         if (svc_ip.equals('')) {
             echo "ERROR: Getting service IP failed"
@@ -110,68 +98,62 @@ pipeline {
     environment {
         IMAGE_NAME = 'acme'
         DEPLOY_PROD = false
-        DOCKER_REG = 'harbor.pcfgcp.pkhamdee.com'
+        DOCKER_REG = 'harbor.tkg.pkhamdee.com'
         GIT_BRANCH = 'master'
         DEPLOY_TO_PROD = false
         KUBECONFIG = "$WORKSPACE/.kubeconfig"
-        HELM_REPO = "https://harbor.pcfgcp.pkhamdee.com/chartrepo/library"
+        HELM_REPO = "https://harbor.tkg.pkhamdee.com/chartrepo/library"
+
+        BUILD_DIR="$WORKSPACE/build"    
+        DOCKER_REPO="library/acme"
 
         //PARAMETERS_FILE = "${WORKSPACE}/parameters.groovy"
     }
 
-    // In this example, all is built and run from the master
-    agent { node { label 'master' } }
+    // Restrict where this project can be run
+    agent { node { label 'jenkins-jenkins-slave' } }
 
     // Pipeline stages
     stages {
 
-        ////////// Step 1 //////////
         stage('Git clone and setup') {
             steps {
-                echo "Check out acme code"
-                git branch: "master",                        
-                        url: 'https://github.com/pivhub/acme-ci-cd.git'
 
-                withCredentials([file(credentialsId: 'letencrypt-ca-cert', variable: 'CA_CERT')]) {
-                    sh "cp ${CA_CERT} ${WORKSPACE}/ca.crt"
+                //load ${PARAMETERS_FILE}    
+
+                echo "validate kubectl"
+                echo "HOME:  ${HOME}"
+                withCredentials([file(credentialsId: 'dev-cluster-config', variable: 'KUBECONFIG_SRC')]) { 
+                  sh "cp ${KUBECONFIG_SRC} ${KUBECONFIG}"
+                  sh "kubectl config --kubeconfig=${KUBECONFIG} use-context dev-cluster-admin@dev-cluster"
+                  sh "kubectl cluster-info"
                 }
 
-                //load ${PARAMETERS_FILE}
+                echo "Checkout acme code"
+                git branch: "master",
+                url: 'https://github.com/pkhamdee/acme-ci-cd.git'
+
+                withCredentials([file(credentialsId: 'harbor-ca-cert', variable: 'CA_CERT')]) {
+                  sh "cp ${CA_CERT} ${WORKSPACE}/ca.crt"
+                }
 
                 // git HEAD
                 script {
                     GIT_HEAD = sh(returnStdout: true, script: 'git rev-parse --short HEAD')
                     GIT_HEAD = GIT_HEAD.replaceAll('\n', '') //replace newline
                     echo "GIT_HEAD is ${GIT_HEAD}"
-                }  
-
-
-                // Setup helm plugin
-                sh '''
-                    helm init --client-only
-                    if [ `helm plugin list | grep push | wc -l ` -eq 0  ] ; then  helm plugin install https://github.com/chartmuseum/helm-push ; fi     
-                '''
+                }
 
                 //add helm repo
                 script {
-                    helmAddrepo () 
-                } 
+                    helmAddrepo ()
+                }
 
                 //list helm repo
                 sh '''
-                    helm repo list
-                    helm repo update
+                helm repo list
+                helm repo update
                 '''
-
-                // Check docker process
-                sh "docker ps"
-
-                // Validate kubectl
-                withCredentials([file(credentialsId: 'kubernetes-config', variable: 'KUBECONFIG_SRC')]) {
-                  sh "cp ${KUBECONFIG_SRC} ${KUBECONFIG}"                    
-                  sh "kubectl config use-context dev1"
-                  sh "kubectl cluster-info"
-                }
 
                 echo "DOCKER_REG is ${DOCKER_REG}"
                 echo "HELM_REPO  is ${HELM_REPO}"
@@ -184,82 +166,106 @@ pipeline {
                     echo "Global ID set to ${ID}"
                 }
 
-            }
-        }
-
-        ////////// Step 2 //////////
-        stage('Build and tests') {
-            steps {
-                echo "Building application and Docker image"
-                sh "${WORKSPACE}/build.sh --build --registry ${DOCKER_REG} --tag ${GIT_HEAD}"
-
-                echo "Running tests"
-
-                // Kill container in case there is a leftover
-                sh "[ -z \"\$(docker ps -a | grep ${ID} 2>/dev/null)\" ] || docker rm -f ${ID}"
-
-                echo "Starting ${IMAGE_NAME} container"
-
-                //sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/library/${IMAGE_NAME}:${GIT_HEAD}"
-                sh "docker run --detach --name ${ID} --rm -P ${DOCKER_REG}/library/${IMAGE_NAME}:${GIT_HEAD}"
-
                 script {
-                    TEST_LOCAL_PORT = sh(returnStdout: true, script: "docker inspect ${ID} --format '{{ (index (index .NetworkSettings.Ports \"80/tcp\") 0).HostPort }}'")
-                    TEST_LOCAL_PORT = TEST_LOCAL_PORT.replaceAll('\n', '') //replace newline
-                    echo "TEST_LOCAL_PORT is ${TEST_LOCAL_PORT}"
-                } 
-
-            }
-        }
-
-        // Run the 3 tests on the currently running ACME Docker container
-        stage('Local tests') {
-            parallel {
-                
-                stage('Curl http_code') {
-                    steps {
-                        echo "curl http_code http://localhost:${TEST_LOCAL_PORT}"
-                        curlRun ("http://localhost:${TEST_LOCAL_PORT}", 'http_code')
-                    }
-                }
-                stage('Curl total_time') {
-                    steps {
-                        echo "curl total_time http://localhost:${TEST_LOCAL_PORT}"
-                        curlRun ("http://localhost:${TEST_LOCAL_PORT}", 'total_time')
-                    }
-                }
-                stage('Curl size_download') {
-                    steps {
-                        echo "curl size_download http://localhost:${TEST_LOCAL_PORT}"
-                        curlRun ("http://localhost:${TEST_LOCAL_PORT}", 'size_download')
-                    }
+                    currentBuild.displayName = "${GIT_HEAD}"
+                    currentBuild.description = "${ID}"
                 }
 
             }
         }
 
-        ////////// Step 3 //////////
+
+        stage('Build and tests') {
+
+            steps {
+
+                podTemplate(yaml: '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: docker
+    image: docker:19.03.1
+    command:
+    - sleep
+    args:
+    - 99d
+    env:
+      - name: DOCKER_HOST
+        value: tcp://localhost:2375
+  - name: docker-daemon
+    image: docker:19.03.1-dind
+    securityContext:
+      privileged: true
+    env:
+      - name: DOCKER_TLS_CERTDIR
+        value: ""
+'''
+                    ) {
+
+                    node(POD_LABEL) {
+
+                        git branch: "master", url: 'https://github.com/pkhamdee/acme-ci-cd.git'
+                        container('docker') {
+
+                            echo "Building ${DOCKER_REPO}:${GIT_HEAD}"     
+
+                            //Prepare build directory
+                            echo  "Preparing files"
+                            sh "mkdir -p ${BUILD_DIR}/site"
+                            sh "cp -v  ${WORKSPACE}/docker/Dockerfile ${BUILD_DIR}"
+                            sh "cp -rv ${WORKSPACE}/src/* ${BUILD_DIR}/site/"
+
+                            //Embed the app version
+                            echo  "Writing version ${GIT_HEAD} to files"
+                            sh "sed -i.org s/__APP_VERSION__/${GIT_HEAD}/g ${BUILD_DIR}/site/*.html"
+                            sh "rm -f ${BUILD_DIR}/site/*.org"
+
+                            echo  "Building Docker image"
+                            sh "docker build -t ${DOCKER_REG}/${DOCKER_REPO}:${GIT_HEAD} ${BUILD_DIR} || errorExit Building ${DOCKER_REPO}:${GIT_HEAD} failed"
+
+                            echo "Running tests"
+
+                            sh "[ -z \"\$(docker ps -a | grep ${ID} 2>/dev/null)\" ] || docker rm -f ${ID}"
+
+                            echo "Starting ${IMAGE_NAME} container"
+
+                            //sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/library/${IMAGE_NAME}:${GIT_HEAD}"
+                            sh "docker run --detach --name ${ID} --rm -P ${DOCKER_REG}/library/${IMAGE_NAME}:${GIT_HEAD}"
+
+                            echo "Stop and remove container"
+                            sh "docker stop ${ID}"
+
+                            echo "Pushing ${DOCKER_REG}/${IMAGE_NAME}:${GIT_HEAD} image to registry"
+                            withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'DOCKER_PSW', usernameVariable: 'DOCKER_USR')]) {
+
+                                sh "docker login ${DOCKER_REG} -u ${DOCKER_USR} -p ${DOCKER_PSW} || errorExit Docker login to ${DOCKER_REG} failed"   
+
+                                sh "docker push ${DOCKER_REG}/${DOCKER_REPO}:${GIT_HEAD} || errorExit Pushing ${DOCKER_REPO}:${GIT_HEAD} failed" 
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+
+
         stage('Publish Docker and Helm') {
             steps {
 
-                // This step should not normally be used in your script. Consult the inline help for details.
-                echo "Stop and remove container"
-                sh "docker stop ${ID}"
+                withCredentials([file(credentialsId: 'dev-cluster-config', variable: 'KUBECONFIG_SRC')]) { 
+                  sh "cp ${KUBECONFIG_SRC} ${KUBECONFIG}"
 
-                echo "Pushing ${DOCKER_REG}/${IMAGE_NAME}:${GIT_HEAD} image to registry"
-                withCredentials([usernamePassword(credentialsId: 'harbor-admin', passwordVariable: 'DOCKER_PSW', usernameVariable: 'DOCKER_USR')]) {                
-                    sh "${WORKSPACE}/build.sh --push --registry ${DOCKER_REG} --tag ${GIT_HEAD}"
-                }
 
-                echo "Packing helm chart"
-                sh "${WORKSPACE}/build.sh --pack_helm --push_helm --helm_repo ${HELM_REPO}"
-
-                echo "docker prune images"
-                sh "docker image prune -f"
+                  echo "Packing helm chart"
+                  sh "${WORKSPACE}/build.sh --pack_helm --push_helm --helm_repo ${HELM_REPO}"  
+                }  
             }
         }
 
-        ////////// Step 4 //////////
+
+
         stage('Deploy to dev') {
             steps {
                 script {
@@ -273,7 +279,7 @@ pipeline {
 
                     // Deploy with helm
                     echo "Deploying dev"
-                    helmInstall(namespace, "${ID}","${ID}-dev.dev1.pcfgcp.pkhamdee.com")
+                    helmInstall(namespace, "${ID}","${ID}-dev.tkg.pkhamdee.com")
                 }
             }
         }
@@ -284,19 +290,19 @@ pipeline {
                 stage('Curl http_code') {
                     steps {
                         //curlTest (namespace, 'http_code')
-                        curlRun ("http://${ID}-dev.dev1.pcfgcp.pkhamdee.com", 'http_code')
+                        curlRun ("http://${ID}-dev.tkg.pkhamdee.com", 'http_code')
                     }
                 }
                 stage('Curl total_time') {
                     steps {
                         //curlTest (namespace, 'time_total')
-                        curlRun ("http://${ID}-dev.dev1.pcfgcp.pkhamdee.com", 'time_total')
+                        curlRun ("http://${ID}-dev.tkg.pkhamdee.com", 'time_total')
                     }
                 }
                 stage('Curl size_download') {
                     steps {
                         //curlTest (namespace, 'size_download')
-                        curlRun ("http://${ID}-dev.dev1.pcfgcp.pkhamdee.com", 'size_download')
+                        curlRun ("http://${ID}-dev.tkg.pkhamdee.com", 'size_download')
                     }
                 }
             }
@@ -311,7 +317,7 @@ pipeline {
             }
         }
 
-        ////////// Step 5 //////////
+
         stage('Deploy to staging') {
             steps {
                 script {
@@ -325,7 +331,7 @@ pipeline {
 
                     // Deploy with helm
                     echo "Deploying stage"
-                    helmInstall (namespace, "${ID}","${ID}-stage.dev1.pcfgcp.pkhamdee.com")
+                    helmInstall (namespace, "${ID}","${IMAGE_NAME}-stage.tkg.pkhamdee.com")
                 }
             }
         }
@@ -336,34 +342,24 @@ pipeline {
                 stage('Curl http_code') {
                     steps {
                         //curlTest (namespace, 'http_code')
-                        curlRun ("http://${ID}-stage.dev1.pcfgcp.pkhamdee.com", 'http_code')
+                        curlRun ("http://${IMAGE_NAME}-stage.tkg.pkhamdee.com", 'http_code')
                     }
                 }
                 stage('Curl total_time') {
                     steps {
                         //curlTest (namespace, 'time_total')
-                        curlRun ("http://${ID}-stage.dev1.pcfgcp.pkhamdee.com", 'time_total')
+                        curlRun ("http://${IMAGE_NAME}-stage.tkg.pkhamdee.com", 'time_total')
                     }
                 }
                 stage('Curl size_download') {
                     steps {
                         //curlTest (namespace, 'size_download')
-                        curlRun ("http://${ID}-stage.dev1.pcfgcp.pkhamdee.com", 'size_download')
+                        curlRun ("http://${IMAGE_NAME}-stage.tkg.pkhamdee.com", 'size_download')
                     }
                 }
             }
         }
 
-        stage('Cleanup staging') {
-            steps {
-                script {
-                    // Remove release if exists
-                    helmDelete (namespace, "${ID}")
-                }
-            }
-        }
-
-        ////////// Step 6 //////////
         //Waif for user manual approval, or proceed automatically if DEPLOY_TO_PROD is true
         stage('Go for Production?') {
             when {
@@ -388,45 +384,43 @@ pipeline {
         stage('Deploy to Production') {
             steps {
                 script {
-                    //sh "kubectl config use-context prod"
-                    sh "kubectl config use-context dev1"
-                    sh "helm repo update"
+
+                    //sh 'kubectl config use-context dev-cluster-admin@dev-cluster'
+                    //sh "helm repo update"
 
                     DEPLOY_PROD = true
                     namespace = 'production'
-                    //sh 'kubectl config use-context prod'
-                    sh 'kubectl config use-context dev1'
 
                     echo "Deploying application ${IMAGE_NAME}:${GIT_HEAD} to ${namespace} namespace"
                     createNamespace (namespace)
 
                     // Deploy with helm
                     echo "Deploying prod"
-                    helmInstall (namespace, "${ID}","acme.dev1.pcfgcp.pkhamdee.com")
+                    helmInstall (namespace, "${ID}","acme.tkg.pkhamdee.com")
                 }
             }
         }
 
         // Run the 3 tests on the deployed Kubernetes pod and service
-        stage('Production tests') {            
+        stage('Production tests') {
 
             parallel {
                 stage('Curl http_code') {
                     steps {
                         //curlTest (namespace, 'http_code')
-                        curlRun ("http://acme.dev1.pcfgcp.pkhamdee.com", 'size_download')
+                        curlRun ("http://acme.tkg.pkhamdee.com", 'size_download')
                     }
                 }
                 stage('Curl total_time') {
                     steps {
                         //curlTest (namespace, 'time_total')
-                        curlRun ("http://acme.dev1.pcfgcp.pkhamdee.com", 'size_download')
+                        curlRun ("http://acme.tkg.pkhamdee.com", 'size_download')
                     }
                 }
                 stage('Curl size_download') {
                     steps {
                         //curlTest (namespace, 'size_download')
-                        curlRun ("http://acme.dev1.pcfgcp.pkhamdee.com", 'size_download')
+                        curlRun ("http://acme.tkg.pkhamdee.com", 'size_download')
                     }
                 }
             }

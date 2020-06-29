@@ -102,7 +102,7 @@ packHelmChart() {
 # Note - this uses the Artifactory API. You can replace it with any other solution you use.
 pushHelmChart() {
     echo -e "\nPushing Helm chart"
-    helm plugin install https://github.com/chartmuseum/helm-push
+    #helm plugin install https://github.com/chartmuseum/helm-push
 
     local chart_name=$(ls -1 ${BUILD_DIR}/helm/*.tgz 2> /dev/null)
     echo "Helm chart: ${chart_name}"
